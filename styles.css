@@ -1,5 +1,3 @@
-/* -------------- CSS VARIABLES -------------- */
-
 :root {
   --bg: #f5f5f5;
   --bg-alt: #e9e9e9;
@@ -28,8 +26,6 @@ body.dark {
   --shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.45);
 }
 
-/* -------------- GLOBAL -------------- */
-
 *,
 *::before,
 *::after {
@@ -49,7 +45,7 @@ body {
   padding: 0 16px 40px;
 }
 
-/* -------------- HEADER -------------- */
+/* HEADER */
 
 .top-bar {
   background: var(--card-bg);
@@ -126,7 +122,7 @@ body {
   font-size: 14px;
 }
 
-/* -------------- THEME TOGGLE -------------- */
+/* THEME TOGGLE */
 
 .theme-toggle {
   border-radius: 999px;
@@ -145,7 +141,7 @@ body {
   filter: brightness(1.05);
 }
 
-/* -------------- DASHBOARD -------------- */
+/* DASHBOARD */
 
 .dashboard {
   background: var(--card-bg);
@@ -167,7 +163,7 @@ body {
   gap: 18px;
 }
 
-/* -------------- HABITS PANEL -------------- */
+/* HABITS PANEL */
 
 .habits-panel {
   border-radius: 14px;
@@ -224,7 +220,8 @@ body.dark .habit-table thead {
   font-size: 13px;
 }
 
-/* checkboxes styled like the screenshot */
+/* checkbox boxes */
+
 .checkbox {
   width: 12px;
   height: 12px;
@@ -234,6 +231,7 @@ body.dark .habit-table thead {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  user-select: none;
 }
 
 .checkbox.checked {
@@ -247,7 +245,7 @@ body.dark .habit-table thead {
   color: #fff;
 }
 
-/* -------------- ANALYSIS PANEL (BAR CHART) -------------- */
+/* ANALYSIS PANEL */
 
 .analysis-panel {
   border-radius: 14px;
@@ -268,7 +266,7 @@ body.dark .habit-table thead {
   width: 100%;
 }
 
-/* -------------- LEGEND -------------- */
+/* LEGEND */
 
 .legend {
   padding: 6px 10px 8px;
@@ -279,7 +277,7 @@ body.dark .habit-table thead {
   color: var(--muted);
 }
 
-/* -------------- CHARTS -------------- */
+/* CHARTS */
 
 .charts-row {
   display: grid;
@@ -306,7 +304,7 @@ body.dark .habit-table thead {
   height: 170px;
 }
 
-/* -------------- RESPONSIVE -------------- */
+/* RESPONSIVE */
 
 @media (max-width: 900px) {
   .dashboard-layout {
@@ -337,4 +335,4 @@ body.dark .habit-table thead {
   .habit-table {
     font-size: 10px;
   }
-}
+      }
