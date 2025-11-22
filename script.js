@@ -168,13 +168,15 @@ window.addEventListener("DOMContentLoaded", () => {
         plugins: { legend: { display: false } },
         scales: {
           x: { ticks: { display: false }, grid: { display: false } },
-          y: {
-            min: 0,
-            max: 20, // 👈 FIXED SCALE: 0 to 20
-            ticks: {
-              stepSize: 2,
-              color: "#555"
-            },
+         y: {
+    min: 1,     // 👈 new bottom limit
+    max: 2,     // 👈 new top limit
+    ticks: {
+        stepSize: 0.1,  // 👈 smaller steps for visible labels
+        color: "#555"
+    },
+    grid: { display: false }
+         }
             grid: { display: false }
           }
         },
