@@ -38,76 +38,54 @@
       </button>
     </header>
 
+    <!-- HABIT MANAGEMENT -->
+    <section class="habit-controls">
+      <h2>Manage Habits</h2>
+      <form id="habitForm">
+        <div class="field">
+          <label for="habitName">Habit name</label>
+          <input id="habitName" type="text" placeholder="e.g. Morning Run" required />
+        </div>
+        <div class="field">
+          <label for="habitIcon">Emoji</label>
+          <input id="habitIcon" type="text" placeholder="🏃" maxlength="4" />
+        </div>
+        <div class="field buttons">
+          <button type="submit" id="habitSubmit">Add Habit</button>
+          <button type="button" id="habitCancelEdit" class="ghost" hidden>Cancel</button>
+        </div>
+      </form>
+
+      <ul id="habitList" class="habit-list">
+        <!-- Filled by JS -->
+      </ul>
+    </section>
+
     <main>
-      <!-- ORIGINAL DASHBOARD -->
+      <!-- SINGLE DASHBOARD -->
       <section class="dashboard">
-        <h2 class="dashboard-title">Original Dashboard</h2>
+        <h2 class="dashboard-title">Dashboard</h2>
         <div class="dashboard-layout">
           <div class="habits-panel">
             <div class="panel-header">My Habits</div>
-            <table class="habit-table">
-              <thead>
-                <tr>
-                  <th class="habit-col">Habit</th>
-                  <!-- Day labels added by JS -->
-                </tr>
-              </thead>
-              <tbody>
-                <!-- Rows added by JS -->
-              </tbody>
-            </table>
+            <div class="table-wrapper">
+              <table class="habit-table">
+                <thead>
+                  <tr>
+                    <th class="habit-col">Habit</th>
+                    <!-- Day labels injected -->
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Rows injected -->
+                </tbody>
+              </table>
+            </div>
             <div class="legend">
               <span>✓ Done</span>
               <span>□ Not done</span>
             </div>
           </div>
-
-          <aside class="analysis-panel">
-            <h3>Analysis</h3>
-            <canvas class="habit-bar-chart" aria-label="Habit progress bar chart"></canvas>
-          </aside>
-        </div>
-
-        <div class="charts-row">
-          <div class="chart-card">
-            <h3>Daily Habit Completion</h3>
-            <canvas class="habit-line-chart"></canvas>
-          </div>
-
-          <div class="chart-card">
-            <h3>Mood &amp; Motivation</h3>
-            <canvas class="motivation-line-chart"></canvas>
-          </div>
-        </div>
-      </section>
-
-      <!-- DUPLICATE DASHBOARD -->
-      <section class="dashboard">
-        <h2 class="dashboard-title">Duplicate Dashboard</h2>
-        <div class="dashboard-layout">
-          <div class="habits-panel">
-            <div class="panel-header">My Habits</div>
-            <table class="habit-table">
-              <thead>
-                <tr>
-                  <th class="habit-col">Habit</th>
-                  <!-- Day labels added by JS -->
-                </tr>
-              </thead>
-              <tbody>
-                <!-- Rows added by JS -->
-              </tbody>
-            </table>
-            <div class="legend">
-              <span>✓ Done</span>
-              <span>□ Not done</span>
-            </div>
-          </div>
-
-          <aside class="analysis-panel">
-            <h3>Analysis</h3>
-            <canvas class="habit-bar-chart" aria-label="Habit progress bar chart duplicate"></canvas>
-          </aside>
         </div>
 
         <div class="charts-row">
