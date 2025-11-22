@@ -119,20 +119,19 @@ window.addEventListener("DOMContentLoaded", () => {
     return m;
   }
 
-  // 🔥 NOW RETURNS 1–20 (habit count), NOT 0–100%
+  // daily value normalized to 1.0–2.0 so axis can stay locked 1–2
   function calculateDailyCompletion(m) {
-  const daily = [];
-  for (let d = 0; d < daysInMonth; d++) {
-    let done = 0;
-    for (let h = 0; h < habits.length; h++) {
-      if (m[h][d]) done++;
+    const daily = [];
+    for (let d = 0; d < daysInMonth; d++) {
+      let done = 0;
+      for (let h = 0; h < habits.length; h++) {
+        if (m[h][d]) done++;
+      }
+      // 0..habits.length -> 1..2
+      const normalized = 1 + done / Math.max(habits.length, 1);
+      daily.push(normalized);
     }
-
-    // Normalization: convert 0–habits.length → 1.0–2.0
-    const normalized = 1 + (done / habits.length); // stays between 1–2
-    daily.push(normalized);
-  }
-  return daily;
+    return daily;
   }
 
   function calculateGlobalTotals(m) {
@@ -171,16 +170,14 @@ window.addEventListener("DOMContentLoaded", () => {
         plugins: { legend: { display: false } },
         scales: {
           x: { ticks: { display: false }, grid: { display: false } },
-         y: {
-    min: 1,     // 👈 new bottom limit
-    max: 2,     // 👈 new top limit
-           bounds: "ticks"
-    ticks: {
-        stepSize: 0.1,  // 👈 smaller steps for visible labels
-        color: "#555"
-    },
-    grid: { display: false }
-         }
+          y: {
+            min: 1,
+            max: 2,
+            bounds: "ticks",
+            ticks: {
+              stepSize: 0.1,
+              color: "#555"
+            },
             grid: { display: false }
           }
         },
@@ -199,7 +196,7 @@ window.addEventListener("DOMContentLoaded", () => {
         data,
         "#7bc96f",
         "rgba(123, 201, 111, 0.25)",
-        "Completed Habits" // 👈 updated label
+        "Completed Habits"
       );
     } else {
       completionChart.data.datasets[0].data = data;
