@@ -40,17 +40,15 @@ themeToggleBtn.addEventListener("click", () => {
 
 syncThemeFromStorage();
 
-// ---------- TABLE GENERATION + DATA ----------
+// ---------- DATA GENERATION ----------
 
 function generateRandomCompletion() {
-  // create some semi-realistic completion pattern
   const matrix = [];
   for (let h = 0; h < habits.length; h++) {
     const row = [];
     for (let d = 0; d < daysInMonth; d++) {
-      // 60% chance done, tweak for variety
       const baseChance = 0.6;
-      const modifier = (Math.sin(d / 4) + 1) / 4; // 0..0.5
+      const modifier = (Math.sin(d / 4) + 1) / 4;
       const chance = baseChance + modifier - 0.1;
       row.push(Math.random() < chance);
     }
@@ -59,12 +57,52 @@ function generateRandomCompletion() {
   return matrix;
 }
 
-function createTableForDashboard(dashboardEl, completionMatrix) {
+// ---------- CALCULATIONS ----------
+
+function calculateDailyCompletion(matrix) {
+  const daily = [];
+  for (let d = 0; d < daysInMonth; d++) {
+    let done = 0;
+    for (let h = 0; h < habits.length; h++) {
+      if (matrix[h][d]) done++;
+    }
+    daily.push((done / habits.length) * 100);
+  }
+  return daily;
+}
+
+function calculateHabitTotals(matrix) {
+  const totals = [];
+  for (let h = 0; h < habits.length; h++) {
+    let count = 0;
+    for (let d = 0; d < daysInMonth; d++) {
+      if (matrix[h][d]) count++;
+    }
+    totals.push(count);
+  }
+  return totals;
+}
+
+function calculateGlobalTotals(matrix) {
+  let totalCompleted = 0;
+  for (let h = 0; h < habits.length; h++) {
+    for (let d = 0; d < daysInMonth; d++) {
+      if (matrix[h][d]) totalCompleted++;
+    }
+  }
+  const totalPossible = habits.length * daysInMonth;
+  const overallPercent = Math.round((totalCompleted / totalPossible) * 100);
+  return { totalCompleted, overallPercent };
+}
+
+// ---------- TABLE CREATION ----------
+
+function createTableForDashboard(dashboardEl, matrix) {
   const table = dashboardEl.querySelector(".habit-table");
   const theadRow = table.querySelector("thead tr");
   const tbody = table.querySelector("tbody");
 
-  // Add day headers (1..30) with weekday labels
+  // Add day headers
   for (let d = 0; d < daysInMonth; d++) {
     const th = document.createElement("th");
     const dayNum = d + 1;
@@ -73,7 +111,7 @@ function createTableForDashboard(dashboardEl, completionMatrix) {
     theadRow.appendChild(th);
   }
 
-  // Body
+  // Build body
   habits.forEach((habit, hIndex) => {
     const tr = document.createElement("tr");
 
@@ -98,9 +136,9 @@ function createTableForDashboard(dashboardEl, completionMatrix) {
       const td = document.createElement("td");
       const box = document.createElement("div");
       box.classList.add("checkbox");
-      if (completionMatrix[hIndex][d]) {
-        box.classList.add("checked");
-      }
+      box.dataset.habit = String(hIndex);
+      box.dataset.day = String(d);
+      if (matrix[hIndex][d]) box.classList.add("checked");
       td.appendChild(box);
       tr.appendChild(td);
     }
@@ -109,34 +147,7 @@ function createTableForDashboard(dashboardEl, completionMatrix) {
   });
 }
 
-// ---------- CALCULATIONS ----------
-
-function calculateDailyCompletion(completionMatrix) {
-  const daily = [];
-  for (let d = 0; d < daysInMonth; d++) {
-    let done = 0;
-    for (let h = 0; h < habits.length; h++) {
-      if (completionMatrix[h][d]) done++;
-    }
-    const percentage = (done / habits.length) * 100;
-    daily.push(percentage);
-  }
-  return daily;
-}
-
-function calculateHabitTotals(completionMatrix) {
-  const totals = [];
-  for (let h = 0; h < habits.length; h++) {
-    let count = 0;
-    for (let d = 0; d < daysInMonth; d++) {
-      if (completionMatrix[h][d]) count++;
-    }
-    totals.push(count);
-  }
-  return totals;
-}
-
-// ---------- CHARTS ----------
+// ---------- CHART HELPERS ----------
 
 function createBarChart(canvas, habitTotals) {
   return new Chart(canvas, {
@@ -147,22 +158,20 @@ function createBarChart(canvas, habitTotals) {
         {
           label: "Completed days",
           data: habitTotals,
-          backgroundColor: "rgba(123,201,111,0.8)"
+          backgroundColor: "rgba(123, 201, 111, 0.8)"
         }
       ]
     },
     options: {
       indexAxis: "y",
-      plugins: {
-        legend: { display: false }
-      },
+      plugins: { legend: { display: false } },
       scales: {
         x: {
-          ticks: { color: "var(--text)" },
+          ticks: { color: "#555" },
           grid: { display: false }
         },
         y: {
-          ticks: { color: "var(--text)", font: { size: 10 } },
+          ticks: { color: "#555", font: { size: 10 } },
           grid: { display: false }
         }
       },
@@ -191,18 +200,10 @@ function createLineChart(canvas, data, color, softColor, label) {
       ]
     },
     options: {
-      plugins: {
-        legend: { display: false }
-      },
+      plugins: { legend: { display: false } },
       scales: {
-        x: {
-          ticks: { display: false },
-          grid: { display: false }
-        },
-        y: {
-          ticks: { color: "var(--text)" },
-          grid: { display: false }
-        }
+        x: { ticks: { display: false }, grid: { display: false } },
+        y: { ticks: { color: "#555" }, grid: { display: false } }
       },
       responsive: true,
       maintainAspectRatio: false
@@ -210,60 +211,128 @@ function createLineChart(canvas, data, color, softColor, label) {
   });
 }
 
-// ---------- MAIN INITIALIZATION ----------
+// Recompute and update charts/statistics for one dashboard
+function refreshDashboard(dashboardEl, matrix, isMaster) {
+  const dailyCompletion = calculateDailyCompletion(matrix);
+  const habitTotals = calculateHabitTotals(matrix);
 
-function initDashboard(dashboardEl) {
-  const completionMatrix = generateRandomCompletion();
-  createTableForDashboard(dashboardEl, completionMatrix);
+  const charts = dashboardEl._charts;
 
-  const dailyCompletion = calculateDailyCompletion(completionMatrix);
-  const habitTotals = calculateHabitTotals(completionMatrix);
+  // update bar chart
+  charts.bar.data.datasets[0].data = habitTotals;
+  charts.bar.update();
 
-  // update global stats (only once, from first dashboard)
-  const totalCompleted = habitTotals.reduce((a, b) => a + b, 0);
-  const totalPossible = habits.length * daysInMonth;
-  const overallPercent = Math.round((totalCompleted / totalPossible) * 100);
+  // completion line
+  charts.completion.data.datasets[0].data = dailyCompletion;
+  charts.completion.update();
 
-  if (!window.__globalStatsInitialized) {
+  // motivation is completion + some fixed curve
+  const motivationData = dailyCompletion.map((p, i) => {
+    const noise = Math.sin(i / 3) * 10 - 15;
+    const val = p + noise;
+    return Math.max(15, Math.min(100, val));
+  });
+  charts.motivation.data.datasets[0].data = motivationData;
+  charts.motivation.update();
+
+  // if this is the main dashboard, update top summary
+  if (isMaster) {
+    const { totalCompleted, overallPercent } = calculateGlobalTotals(matrix);
     document.getElementById("totalHabits").textContent = habits.length;
-    document.getElementById("completedHabitsTotal").textContent = totalCompleted;
+    document.getElementById("completedHabitsTotal").textContent =
+      totalCompleted;
     document.getElementById("overallProgressPercent").textContent =
       overallPercent + "%";
     document.getElementById("overallProgressFill").style.width =
       overallPercent + "%";
-    window.__globalStatsInitialized = true;
   }
+}
 
-  // Charts
+// ---------- INITIALIZE ONE DASHBOARD ----------
+
+function initDashboard(dashboardEl, index) {
+  const isMaster = index === 0;
+
+  // matrix for this dashboard
+  const matrix = generateRandomCompletion();
+  dashboardEl._matrix = matrix;
+
+  // table
+  createTableForDashboard(dashboardEl, matrix);
+
+  // charts
   const barCanvas = dashboardEl.querySelector(".habit-bar-chart");
   const habitLineCanvas = dashboardEl.querySelector(".habit-line-chart");
   const motivationLineCanvas = dashboardEl.querySelector(
     ".motivation-line-chart"
   );
 
-  createBarChart(barCanvas, habitTotals);
+  const habitTotals = calculateHabitTotals(matrix);
+  const dailyCompletion = calculateDailyCompletion(matrix);
 
-  createLineChart(
+  const barChart = createBarChart(barCanvas, habitTotals);
+  const completionChart = createLineChart(
     habitLineCanvas,
     dailyCompletion,
     "#7bc96f",
-    "rgba(123,201,111,0.25)",
+    "rgba(123, 201, 111, 0.25)",
     "Completion %"
   );
 
-  // Fake motivation data: completion plus some noise
   const motivationData = dailyCompletion.map((p, i) => {
-    const noise = (Math.sin(i / 3) * 10) | 0;
-    return Math.max(15, Math.min(100, p + noise - 15));
+    const noise = Math.sin(i / 3) * 10 - 15;
+    const val = p + noise;
+    return Math.max(15, Math.min(100, val));
   });
 
-  createLineChart(
+  const motivationChart = createLineChart(
     motivationLineCanvas,
     motivationData,
     "#f3a6c4",
-    "rgba(243,166,196,0.3)",
+    "rgba(243, 166, 196, 0.3)",
     "Motivation"
   );
+
+  dashboardEl._charts = {
+    bar: barChart,
+    completion: completionChart,
+    motivation: motivationChart
+  };
+
+  // initial summary from first dashboard
+  if (isMaster) {
+    const { totalCompleted, overallPercent } = calculateGlobalTotals(matrix);
+    document.getElementById("totalHabits").textContent = habits.length;
+    document.getElementById("completedHabitsTotal").textContent =
+      totalCompleted;
+    document.getElementById("overallProgressPercent").textContent =
+      overallPercent + "%";
+    document.getElementById("overallProgressFill").style.width =
+      overallPercent + "%";
+  }
+
+  // click handler for checkboxes (event delegation)
+  dashboardEl.addEventListener("click", (e) => {
+    const box = e.target.closest(".checkbox");
+    if (!box || !dashboardEl.contains(box)) return;
+
+    const hIndex = Number(box.dataset.habit);
+    const dIndex = Number(box.dataset.day);
+    if (Number.isNaN(hIndex) || Number.isNaN(dIndex)) return;
+
+    // toggle data
+    matrix[hIndex][dIndex] = !matrix[hIndex][dIndex];
+
+    // toggle style
+    box.classList.toggle("checked");
+
+    // refresh charts & global stats
+    refreshDashboard(dashboardEl, matrix, isMaster);
+  });
 }
 
-document.querySelectorAll(".dashboard").forEach(initDashboard);
+// ---------- BOOTSTRAP ----------
+
+document.querySelectorAll(".dashboard").forEach((dash, idx) => {
+  initDashboard(dash, idx);
+});
