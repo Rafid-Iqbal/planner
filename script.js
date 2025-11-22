@@ -54,9 +54,7 @@ window.addEventListener("DOMContentLoaded", () => {
         document.body.classList.remove("dark");
         themeToggleBtn.textContent = "🌞 Light";
       }
-    } catch (e) {
-      // ignore theme storage errors
-    }
+    } catch (e) {}
   }
 
   themeToggleBtn.addEventListener("click", () => {
@@ -64,9 +62,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const mode = document.body.classList.contains("dark") ? "dark" : "light";
     try {
       localStorage.setItem("habit-theme", mode);
-    } catch (e) {
-      // ignore storage errors
-    }
+    } catch (e) {}
     syncThemeFromStorage();
   });
 
@@ -75,7 +71,6 @@ window.addEventListener("DOMContentLoaded", () => {
   // ---------- STORAGE ----------
 
   function normalizeMatrix() {
-    // rows
     while (matrix.length < habits.length) {
       matrix.push(Array.from({ length: daysInMonth }, () => false));
     }
@@ -83,9 +78,7 @@ window.addEventListener("DOMContentLoaded", () => {
       matrix.pop();
     }
 
-    // columns
     for (let i = 0; i < matrix.length; i++) {
-      if (!Array.isArray(matrix[i])) matrix[i] = [];
       while (matrix[i].length < daysInMonth) matrix[i].push(false);
       while (matrix[i].length > daysInMonth) matrix[i].pop();
     }
@@ -93,27 +86,22 @@ window.addEventListener("DOMContentLoaded", () => {
 
   function saveState() {
     try {
-      const payload = { habits, matrix };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch (e) {
-      console.warn("localStorage save failed", e);
-    }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ habits, matrix }));
+    } catch (e) {}
   }
 
   function loadState() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return false;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.habits) && Array.isArray(parsed.matrix)) {
-        habits = parsed.habits;
-        matrix = parsed.matrix.map(row => row.map(v => !!v));
+      const data = JSON.parse(raw);
+      if (Array.isArray(data.habits) && Array.isArray(data.matrix)) {
+        habits = data.habits;
+        matrix = data.matrix;
         normalizeMatrix();
         return true;
       }
-    } catch (e) {
-      console.warn("localStorage load failed", e);
-    }
+    } catch (e) {}
     return false;
   }
 
@@ -124,39 +112,36 @@ window.addEventListener("DOMContentLoaded", () => {
     for (let h = 0; h < habits.length; h++) {
       const row = [];
       for (let d = 0; d < daysInMonth; d++) {
-        const baseChance = 0.6;
-        const modifier = (Math.sin(d / 4) + 1) / 4;
-        const chance = baseChance + modifier - 0.1;
-        row.push(Math.random() < chance);
+        row.push(Math.random() < 0.5);
       }
       m.push(row);
     }
     return m;
   }
 
+  // 🔥 NOW RETURNS 1–20 (habit count), NOT 0–100%
   function calculateDailyCompletion(m) {
     const daily = [];
     for (let d = 0; d < daysInMonth; d++) {
       let done = 0;
       for (let h = 0; h < habits.length; h++) {
-        if (m[h]?.[d]) done++;
+        if (m[h][d]) done++;
       }
-      const denom = Math.max(habits.length, 1);
-      daily.push((done / denom) * 100);
+      daily.push(done); // 👈 count, not percentage
     }
     return daily;
   }
 
   function calculateGlobalTotals(m) {
-    let totalCompleted = 0;
+    let total = 0;
     for (let h = 0; h < habits.length; h++) {
       for (let d = 0; d < daysInMonth; d++) {
-        if (m[h]?.[d]) totalCompleted++;
+        if (m[h][d]) total++;
       }
     }
-    const totalPossible = Math.max(habits.length * daysInMonth, 1);
-    const overallPercent = Math.round((totalCompleted / totalPossible) * 100);
-    return { totalCompleted, overallPercent };
+    const totalPossible = habits.length * daysInMonth;
+    const overall = Math.round((total / totalPossible) * 100);
+    return { totalCompleted: total, overallPercent: overall };
   }
 
   // ---------- CHARTS ----------
@@ -183,27 +168,35 @@ window.addEventListener("DOMContentLoaded", () => {
         plugins: { legend: { display: false } },
         scales: {
           x: { ticks: { display: false }, grid: { display: false } },
-          y: { ticks: { color: "#555" }, grid: { display: false } }
+          y: {
+            min: 0,
+            max: 20, // 👈 FIXED SCALE: 0 to 20
+            ticks: {
+              stepSize: 2,
+              color: "#555"
+            },
+            grid: { display: false }
+          }
         },
         responsive: true,
-        maintainAspectRatio: false // height controlled by CSS aspect-ratio
+        maintainAspectRatio: false
       }
     });
   }
 
   function updateCharts() {
-    const completionData = calculateDailyCompletion(matrix);
+    const data = calculateDailyCompletion(matrix);
 
     if (!completionChart) {
       completionChart = createLineChart(
         completionCanvas,
-        completionData,
+        data,
         "#7bc96f",
         "rgba(123, 201, 111, 0.25)",
-        "Completion %"
+        "Completed Habits" // 👈 updated label
       );
     } else {
-      completionChart.data.datasets[0].data = completionData;
+      completionChart.data.datasets[0].data = data;
       completionChart.update();
     }
   }
@@ -219,43 +212,27 @@ window.addEventListener("DOMContentLoaded", () => {
     theadRow.innerHTML = '<th class="habit-col">Habit</th>';
     tbody.innerHTML = "";
 
-    // day headers
     for (let d = 0; d < daysInMonth; d++) {
       const th = document.createElement("th");
-      const dayNum = d + 1;
-      const weekDay = dayLabels[d % 7];
-      th.innerHTML = `${weekDay}<br>${dayNum}`;
+      th.innerHTML = `${dayLabels[d % 7]}<br>${d + 1}`;
       theadRow.appendChild(th);
     }
 
-    // rows
-    habits.forEach((habit, hIndex) => {
+    habits.forEach((habit, h) => {
       const tr = document.createElement("tr");
 
-      const habitCell = document.createElement("td");
-      habitCell.classList.add("habit-col");
-
-      const habitWrap = document.createElement("div");
-      habitWrap.classList.add("habit-name");
-      const emojiSpan = document.createElement("span");
-      emojiSpan.classList.add("habit-emoji");
-      emojiSpan.textContent = habit.icon || "✅";
-
-      const nameSpan = document.createElement("span");
-      nameSpan.textContent = habit.name;
-
-      habitWrap.appendChild(emojiSpan);
-      habitWrap.appendChild(nameSpan);
-      habitCell.appendChild(habitWrap);
-      tr.appendChild(habitCell);
+      const cell = document.createElement("td");
+      cell.classList.add("habit-col");
+      cell.innerHTML = `<div class="habit-name"><span class="habit-emoji">${habit.icon}</span>${habit.name}</div>`;
+      tr.appendChild(cell);
 
       for (let d = 0; d < daysInMonth; d++) {
         const td = document.createElement("td");
         const box = document.createElement("div");
         box.classList.add("checkbox");
-        box.dataset.habit = String(hIndex);
-        box.dataset.day = String(d);
-        if (matrix[hIndex]?.[d]) box.classList.add("checked");
+        if (matrix[h][d]) box.classList.add("checked");
+        box.dataset.habit = h;
+        box.dataset.day = d;
         td.appendChild(box);
         tr.appendChild(td);
       }
@@ -279,43 +256,21 @@ window.addEventListener("DOMContentLoaded", () => {
   // ---------- HABIT MANAGEMENT ----------
 
   function updateHabitFormMode() {
-    if (editingIndex === null) {
-      habitSubmitBtn.textContent = "Add Habit";
-      habitCancelBtn.hidden = true;
-    } else {
-      habitSubmitBtn.textContent = "Save Habit";
-      habitCancelBtn.hidden = false;
-    }
+    habitSubmitBtn.textContent = editingIndex === null ? "Add Habit" : "Save Habit";
+    habitCancelBtn.hidden = editingIndex === null;
   }
 
   function renderHabitList() {
     habitListEl.innerHTML = "";
-    habits.forEach((habit, index) => {
-      const li = document.createElement("li");
-
-      const labelSpan = document.createElement("span");
-      labelSpan.classList.add("label");
-      labelSpan.textContent = `${habit.icon || "✅"} ${habit.name}`;
-
-      const actionsDiv = document.createElement("div");
-      actionsDiv.classList.add("habit-actions");
-
-      const editBtn = document.createElement("button");
-      editBtn.textContent = "Edit";
-      editBtn.dataset.action = "edit";
-      editBtn.dataset.index = String(index);
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.textContent = "Delete";
-      deleteBtn.dataset.action = "delete";
-      deleteBtn.dataset.index = String(index);
-
-      actionsDiv.appendChild(editBtn);
-      actionsDiv.appendChild(deleteBtn);
-
-      li.appendChild(labelSpan);
-      li.appendChild(actionsDiv);
-      habitListEl.appendChild(li);
+    habits.forEach((habit, i) => {
+      habitListEl.innerHTML += `
+      <li>
+        <span class="label">${habit.icon} ${habit.name}</span>
+        <div class="habit-actions">
+          <button data-action="edit" data-index="${i}">Edit</button>
+          <button data-action="delete" data-index="${i}">Delete</button>
+        </div>
+      </li>`;
     });
   }
 
@@ -325,21 +280,18 @@ window.addEventListener("DOMContentLoaded", () => {
     const icon = (habitIconInput.value.trim() || "✅").slice(0, 4);
     if (!name) return;
 
-    if (editingIndex === null) {
-      habits.push({ name, icon });
-    } else {
-      habits[editingIndex] = { name, icon };
-    }
+    if (editingIndex === null) habits.push({ name, icon });
+    else habits[editingIndex] = { name, icon };
+
+    editingIndex = null;
+    habitForm.reset();
 
     normalizeMatrix();
-    renderTable();
     renderHabitList();
+    renderTable();
     updateCharts();
     refreshGlobalStats();
     saveState();
-
-    habitForm.reset();
-    editingIndex = null;
     updateHabitFormMode();
   });
 
@@ -352,31 +304,21 @@ window.addEventListener("DOMContentLoaded", () => {
   habitListEl.addEventListener("click", (e) => {
     const btn = e.target.closest("button");
     if (!btn) return;
-    const index = Number(btn.dataset.index);
-    if (Number.isNaN(index)) return;
 
+    const index = Number(btn.dataset.index);
     if (btn.dataset.action === "edit") {
       editingIndex = index;
       habitNameInput.value = habits[index].name;
       habitIconInput.value = habits[index].icon;
       updateHabitFormMode();
-      habitNameInput.focus();
-    } else if (btn.dataset.action === "delete") {
+    } else {
       habits.splice(index, 1);
       normalizeMatrix();
-      renderTable();
       renderHabitList();
+      renderTable();
       updateCharts();
       refreshGlobalStats();
       saveState();
-
-      if (editingIndex === index) {
-        editingIndex = null;
-        habitForm.reset();
-      } else if (editingIndex !== null && index < editingIndex) {
-        editingIndex -= 1;
-      }
-      updateHabitFormMode();
     }
   });
 
@@ -384,13 +326,12 @@ window.addEventListener("DOMContentLoaded", () => {
 
   dashboardSection.addEventListener("click", (e) => {
     const box = e.target.closest(".checkbox");
-    if (!box || !dashboardSection.contains(box)) return;
+    if (!box) return;
 
-    const hIndex = Number(box.dataset.habit);
-    const dIndex = Number(box.dataset.day);
-    if (Number.isNaN(hIndex) || Number.isNaN(dIndex)) return;
+    const h = Number(box.dataset.habit);
+    const d = Number(box.dataset.day);
 
-    matrix[hIndex][dIndex] = !matrix[hIndex][dIndex];
+    matrix[h][d] = !matrix[h][d];
     box.classList.toggle("checked");
 
     updateCharts();
@@ -400,8 +341,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // ---------- INIT ----------
 
-  const hasSaved = loadState();
-  if (!hasSaved) {
+  if (!loadState()) {
     matrix = generateRandomCompletion();
     normalizeMatrix();
     saveState();
