@@ -141,7 +141,118 @@ body {
   filter: brightness(1.05);
 }
 
-/* DASHBOARD */
+/* HABIT MANAGEMENT */
+
+.habit-controls {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 16px 18px 10px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+  margin-bottom: 22px;
+}
+
+.habit-controls h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+#habitForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-bottom: 10px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  flex: 1;
+}
+
+.field label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+
+.field input {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  color: var(--text);
+}
+
+.field.buttons {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+#habitSubmit,
+#habitCancelEdit {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--accent-soft);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+#habitCancelEdit {
+  background: transparent;
+}
+
+#habitSubmit:hover,
+#habitCancelEdit:hover {
+  filter: brightness(1.05);
+}
+
+.habit-list {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.habit-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.habit-list span.label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.habit-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.habit-actions button {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.habit-actions button:hover {
+  filter: brightness(1.05);
+}
+
+/* DASHBOARDS */
 
 .dashboard {
   background: var(--card-bg);
@@ -158,12 +269,10 @@ body {
 }
 
 .dashboard-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(260px, 1.1fr);
-  gap: 18px;
+  display: block;
 }
 
-/* HABITS PANEL */
+/* HABITS PANEL & TABLE */
 
 .habits-panel {
   border-radius: 14px;
@@ -179,8 +288,13 @@ body {
   background: rgba(0, 0, 0, 0.03);
 }
 
+.table-wrapper {
+  overflow-x: auto;
+}
+
 .habit-table {
   width: 100%;
+  min-width: 700px;
   border-collapse: collapse;
   font-size: 11px;
   background: var(--card-bg);
@@ -220,7 +334,7 @@ body.dark .habit-table thead {
   font-size: 13px;
 }
 
-/* checkbox boxes */
+/* checkbox box */
 
 .checkbox {
   width: 12px;
@@ -245,27 +359,6 @@ body.dark .habit-table thead {
   color: #fff;
 }
 
-/* ANALYSIS PANEL */
-
-.analysis-panel {
-  border-radius: 14px;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  padding: 10px 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.analysis-panel h3 {
-  margin: 2px 0 6px;
-  font-size: 14px;
-}
-
-.analysis-panel canvas {
-  width: 100%;
-}
-
 /* LEGEND */
 
 .legend {
@@ -281,7 +374,7 @@ body.dark .habit-table thead {
 
 .charts-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 16px;
   margin-top: 18px;
 }
@@ -301,16 +394,12 @@ body.dark .habit-table thead {
 
 .chart-card canvas {
   width: 100%;
-  height: 170px;
+  height: 190px;
 }
 
 /* RESPONSIVE */
 
 @media (max-width: 900px) {
-  .dashboard-layout {
-    grid-template-columns: 1fr;
-  }
-
   .top-bar {
     flex-direction: column;
     align-items: flex-start;
@@ -328,11 +417,17 @@ body.dark .habit-table thead {
     align-items: flex-start;
   }
 
-  .habit-col {
-    position: static;
-  }
-
   .habit-table {
     font-size: 10px;
   }
-      }
+
+  .chart-card canvas {
+    height: 160px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chart-card canvas {
+    height: 140px;
+  }
+  }
