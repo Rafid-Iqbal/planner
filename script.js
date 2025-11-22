@@ -119,7 +119,7 @@ window.addEventListener("DOMContentLoaded", () => {
     return m;
   }
 
-  // 🔥 Now returns values normalized to 1.0–2.0
+  // NOW RETURNS VALUES NORMALIZED TO 1.0–2.0
   function calculateDailyCompletion(m) {
     const daily = [];
     const denom = Math.max(habits.length, 1);
