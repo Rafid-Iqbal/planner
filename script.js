@@ -121,15 +121,18 @@ window.addEventListener("DOMContentLoaded", () => {
 
   // 🔥 NOW RETURNS 1–20 (habit count), NOT 0–100%
   function calculateDailyCompletion(m) {
-    const daily = [];
-    for (let d = 0; d < daysInMonth; d++) {
-      let done = 0;
-      for (let h = 0; h < habits.length; h++) {
-        if (m[h][d]) done++;
-      }
-      daily.push(done); // 👈 count, not percentage
+  const daily = [];
+  for (let d = 0; d < daysInMonth; d++) {
+    let done = 0;
+    for (let h = 0; h < habits.length; h++) {
+      if (m[h][d]) done++;
     }
-    return daily;
+
+    // Normalization: convert 0–habits.length → 1.0–2.0
+    const normalized = 1 + (done / habits.length); // stays between 1–2
+    daily.push(normalized);
+  }
+  return daily;
   }
 
   function calculateGlobalTotals(m) {
