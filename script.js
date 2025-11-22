@@ -1,4 +1,6 @@
-// ---------- CONFIG ----------
+// ---------- CONFIG & STATE ----------
+
+const STORAGE_KEY = "habit-tracker-v1";
 
 let habits = [
   { name: "Wake up at 6:00", icon: "⏰" },
@@ -16,11 +18,30 @@ let habits = [
 const daysInMonth = 30;
 const dayLabels = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-const dashboards = []; // store per-dashboard state
+// matrix[habitIndex][dayIndex] = true/false
+let matrix = [];
+
+// Chart.js instances
+let completionChart = null;
+let motivationChart = null;
+
+// DOM references
+const themeToggleBtn = document.getElementById("themeToggle");
+const dashboardSection = document.querySelector(".dashboard");
+const tableEl = dashboardSection.querySelector(".habit-table");
+const completionCanvas = dashboardSection.querySelector(".habit-line-chart");
+const motivationCanvas = dashboardSection.querySelector(".motivation-line-chart");
+
+const habitForm = document.getElementById("habitForm");
+const habitNameInput = document.getElementById("habitName");
+const habitIconInput = document.getElementById("habitIcon");
+const habitSubmitBtn = document.getElementById("habitSubmit");
+const habitCancelBtn = document.getElementById("habitCancelEdit");
+const habitListEl = document.getElementById("habitList");
+
+let editingIndex = null;
 
 // ---------- THEME TOGGLE ----------
-
-const themeToggleBtn = document.getElementById("themeToggle");
 
 function syncThemeFromStorage() {
   const saved = localStorage.getItem("habit-theme");
@@ -42,10 +63,55 @@ themeToggleBtn.addEventListener("click", () => {
 
 syncThemeFromStorage();
 
+// ---------- STORAGE (SAVE / LOAD) ----------
+
+function normalizeMatrix() {
+  // adjust rows to habit count
+  while (matrix.length < habits.length) {
+    matrix.push(Array.from({ length: daysInMonth }, () => false));
+  }
+  while (matrix.length > habits.length) {
+    matrix.pop();
+  }
+
+  // adjust columns for each row
+  for (let i = 0; i < matrix.length; i++) {
+    if (!Array.isArray(matrix[i])) matrix[i] = [];
+    while (matrix[i].length < daysInMonth) {
+      matrix[i].push(false);
+    }
+    while (matrix[i].length > daysInMonth) {
+      matrix[i].pop();
+    }
+  }
+}
+
+function saveState() {
+  const payload = { habits, matrix };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+
+function loadState() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.habits) && Array.isArray(parsed.matrix)) {
+      habits = parsed.habits;
+      matrix = parsed.matrix.map(row => row.map(val => !!val));
+      normalizeMatrix();
+      return true;
+    }
+  } catch (e) {
+    console.warn("Failed to load saved state", e);
+  }
+  return false;
+}
+
 // ---------- DATA HELPERS ----------
 
 function generateRandomCompletion() {
-  const matrix = [];
+  const m = [];
   for (let h = 0; h < habits.length; h++) {
     const row = [];
     for (let d = 0; d < daysInMonth; d++) {
@@ -54,28 +120,29 @@ function generateRandomCompletion() {
       const chance = baseChance + modifier - 0.1;
       row.push(Math.random() < chance);
     }
-    matrix.push(row);
+    m.push(row);
   }
-  return matrix;
+  return m;
 }
 
-function calculateDailyCompletion(matrix) {
+function calculateDailyCompletion(m) {
   const daily = [];
   for (let d = 0; d < daysInMonth; d++) {
     let done = 0;
     for (let h = 0; h < habits.length; h++) {
-      if (matrix[h]?.[d]) done++;
+      if (m[h]?.[d]) done++;
     }
-    daily.push((done / Math.max(habits.length, 1)) * 100);
+    const denom = Math.max(habits.length, 1);
+    daily.push((done / denom) * 100);
   }
   return daily;
 }
 
-function calculateGlobalTotals(matrix) {
+function calculateGlobalTotals(m) {
   let totalCompleted = 0;
   for (let h = 0; h < habits.length; h++) {
     for (let d = 0; d < daysInMonth; d++) {
-      if (matrix[h]?.[d]) totalCompleted++;
+      if (m[h]?.[d]) totalCompleted++;
     }
   }
   const totalPossible = Math.max(habits.length * daysInMonth, 1);
@@ -110,32 +177,60 @@ function createLineChart(canvas, data, color, softColor, label) {
         y: { ticks: { color: "#555" }, grid: { display: false } }
       },
       responsive: true,
-      maintainAspectRatio: false
+      maintainAspectRatio: false // height comes from CSS
     }
   });
 }
 
-// ---------- RENDERING DASHBOARDS ----------
+function updateCharts() {
+  const completionData = calculateDailyCompletion(matrix);
 
-function renderDashboard(dashboard) {
-  const { sectionEl, tableEl, matrix, isMaster } = dashboard;
+  if (!completionChart) {
+    completionChart = createLineChart(
+      completionCanvas,
+      completionData,
+      "#7bc96f",
+      "rgba(123, 201, 111, 0.25)",
+      "Completion %"
+    );
+  } else {
+    completionChart.data.datasets[0].data = completionData;
+    completionChart.update();
+  }
 
-  // Adjust matrix rows to current habits length
-  while (matrix.length < habits.length) {
-    matrix.push(Array.from({ length: daysInMonth }, () => false));
+  const motivationData = completionData.map((p, i) => {
+    const noise = Math.sin(i / 3) * 10 - 15;
+    const val = p + noise;
+    return Math.max(15, Math.min(100, val));
+  });
+
+  if (!motivationChart) {
+    motivationChart = createLineChart(
+      motivationCanvas,
+      motivationData,
+      "#f3a6c4",
+      "rgba(243, 166, 196, 0.3)",
+      "Motivation"
+    );
+  } else {
+    motivationChart.data.datasets[0].data = motivationData;
+    motivationChart.update();
   }
-  while (matrix.length > habits.length) {
-    matrix.pop();
-  }
+}
+
+// ---------- TABLE RENDERING ----------
+
+function renderTable() {
+  normalizeMatrix();
 
   const theadRow = tableEl.querySelector("thead tr");
   const tbody = tableEl.querySelector("tbody");
 
-  // reset head/body
+  // reset head & body
   theadRow.innerHTML = '<th class="habit-col">Habit</th>';
   tbody.innerHTML = "";
 
-  // Add day headers
+  // day headers
   for (let d = 0; d < daysInMonth; d++) {
     const th = document.createElement("th");
     const dayNum = d + 1;
@@ -144,7 +239,7 @@ function renderDashboard(dashboard) {
     theadRow.appendChild(th);
   }
 
-  // Build rows
+  // rows
   habits.forEach((habit, hIndex) => {
     const tr = document.createElement("tr");
 
@@ -178,43 +273,12 @@ function renderDashboard(dashboard) {
 
     tbody.appendChild(tr);
   });
-
-  // Rebuild charts
-  if (dashboard.charts.completion) dashboard.charts.completion.destroy();
-  if (dashboard.charts.motivation) dashboard.charts.motivation.destroy();
-
-  const completionData = calculateDailyCompletion(matrix);
-
-  dashboard.charts.completion = createLineChart(
-    dashboard.completionCanvas,
-    completionData,
-    "#7bc96f",
-    "rgba(123, 201, 111, 0.25)",
-    "Completion %"
-  );
-
-  const motivationData = completionData.map((p, i) => {
-    const noise = Math.sin(i / 3) * 10 - 15;
-    const val = p + noise;
-    return Math.max(15, Math.min(100, val));
-  });
-
-  dashboard.charts.motivation = createLineChart(
-    dashboard.motivationCanvas,
-    motivationData,
-    "#f3a6c4",
-    "rgba(243, 166, 196, 0.3)",
-    "Motivation"
-  );
-
-  if (isMaster) refreshGlobalStats();
 }
 
-function refreshGlobalStats() {
-  const master = dashboards.find((d) => d.isMaster);
-  if (!master) return;
-  const { totalCompleted, overallPercent } = calculateGlobalTotals(master.matrix);
+// ---------- GLOBAL STATS ----------
 
+function refreshGlobalStats() {
+  const { totalCompleted, overallPercent } = calculateGlobalTotals(matrix);
   document.getElementById("totalHabits").textContent = habits.length;
   document.getElementById("completedHabitsTotal").textContent = totalCompleted;
   document.getElementById("overallProgressPercent").textContent =
@@ -223,55 +287,7 @@ function refreshGlobalStats() {
     overallPercent + "%";
 }
 
-// ---------- INIT ONE DASHBOARD ----------
-
-function initDashboard(sectionEl, isMaster) {
-  const tableEl = sectionEl.querySelector(".habit-table");
-  const completionCanvas = sectionEl.querySelector(".habit-line-chart");
-  const motivationCanvas = sectionEl.querySelector(".motivation-line-chart");
-
-  const matrix = generateRandomCompletion();
-
-  const dashboard = {
-    sectionEl,
-    tableEl,
-    completionCanvas,
-    motivationCanvas,
-    matrix,
-    charts: {},
-    isMaster
-  };
-
-  dashboards.push(dashboard);
-  renderDashboard(dashboard);
-
-  // checkbox click handler (delegated)
-  sectionEl.addEventListener("click", (e) => {
-    const box = e.target.closest(".checkbox");
-    if (!box || !sectionEl.contains(box)) return;
-
-    const hIndex = Number(box.dataset.habit);
-    const dIndex = Number(box.dataset.day);
-    if (Number.isNaN(hIndex) || Number.isNaN(dIndex)) return;
-
-    dashboard.matrix[hIndex][dIndex] = !dashboard.matrix[hIndex][dIndex];
-    box.classList.toggle("checked");
-
-    // Update charts and global stats
-    renderDashboard(dashboard);
-  });
-}
-
-// ---------- HABIT MANAGEMENT UI ----------
-
-const habitForm = document.getElementById("habitForm");
-const habitNameInput = document.getElementById("habitName");
-const habitIconInput = document.getElementById("habitIcon");
-const habitSubmitBtn = document.getElementById("habitSubmit");
-const habitCancelBtn = document.getElementById("habitCancelEdit");
-const habitListEl = document.getElementById("habitList");
-
-let editingIndex = null;
+// ---------- HABIT MANAGEMENT (ADD / EDIT / DELETE) ----------
 
 function updateHabitFormMode() {
   if (editingIndex === null) {
@@ -317,23 +333,24 @@ function renderHabitList() {
 habitForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const name = habitNameInput.value.trim();
-  const icon = habitIconInput.value.trim() || "✅";
+  const icon = (habitIconInput.value.trim() || "✅").slice(0, 4);
   if (!name) return;
 
   if (editingIndex === null) {
     // add
     habits.push({ name, icon });
-    dashboards.forEach((d) => {
-      d.matrix.push(Array.from({ length: daysInMonth }, () => false));
-      renderDashboard(d);
-    });
   } else {
     // edit
     habits[editingIndex] = { name, icon };
-    dashboards.forEach(renderDashboard);
   }
 
+  normalizeMatrix();
+  renderTable();
   renderHabitList();
+  updateCharts();
+  refreshGlobalStats();
+  saveState();
+
   habitForm.reset();
   editingIndex = null;
   updateHabitFormMode();
@@ -359,10 +376,13 @@ habitListEl.addEventListener("click", (e) => {
     habitNameInput.focus();
   } else if (btn.dataset.action === "delete") {
     habits.splice(index, 1);
-    dashboards.forEach((d) => {
-      d.matrix.splice(index, 1);
-      renderDashboard(d);
-    });
+    normalizeMatrix();
+    renderTable();
+    renderHabitList();
+    updateCharts();
+    refreshGlobalStats();
+    saveState();
+
     if (editingIndex === index) {
       editingIndex = null;
       habitForm.reset();
@@ -370,16 +390,39 @@ habitListEl.addEventListener("click", (e) => {
       editingIndex -= 1;
     }
     updateHabitFormMode();
-    renderHabitList();
   }
+});
+
+// ---------- CHECKBOX CLICK (TICKS) ----------
+
+dashboardSection.addEventListener("click", (e) => {
+  const box = e.target.closest(".checkbox");
+  if (!box || !dashboardSection.contains(box)) return;
+
+  const hIndex = Number(box.dataset.habit);
+  const dIndex = Number(box.dataset.day);
+  if (Number.isNaN(hIndex) || Number.isNaN(dIndex)) return;
+
+  matrix[hIndex][dIndex] = !matrix[hIndex][dIndex];
+  box.classList.toggle("checked");
+
+  updateCharts();
+  refreshGlobalStats();
+  saveState();
 });
 
 // ---------- BOOTSTRAP ----------
 
-document.querySelectorAll(".dashboard").forEach((section, idx) => {
-  initDashboard(section, idx === 0); // first dashboard is master
-});
+(function init() {
+  const hasSaved = loadState();
+  if (!hasSaved) {
+    matrix = generateRandomCompletion();
+  }
+  normalizeMatrix();
 
-renderHabitList();
-updateHabitFormMode();
-refreshGlobalStats();
+  renderHabitList();
+  renderTable();
+  updateCharts();
+  refreshGlobalStats();
+  updateHabitFormMode();
+})();
