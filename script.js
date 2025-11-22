@@ -171,6 +171,7 @@ window.addEventListener("DOMContentLoaded", () => {
          y: {
     min: 1,     // 👈 new bottom limit
     max: 2,     // 👈 new top limit
+           bounds: "ticks"
     ticks: {
         stepSize: 0.1,  // 👈 smaller steps for visible labels
         color: "#555"
