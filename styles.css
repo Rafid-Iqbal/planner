@@ -374,7 +374,7 @@ body.dark .habit-table thead {
 
 .charts-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   margin-top: 18px;
 }
@@ -392,10 +392,11 @@ body.dark .habit-table thead {
   font-size: 14px;
 }
 
-/* 🔴 Fixed, smaller graph height */
+/* 9:21-ish (wide & short) graph, responsive */
 .chart-card canvas {
   width: 100%;
-  height: 160px; /* fixed vertical size */
+  aspect-ratio: 21 / 9; /* width : height */
+  display: block;
 }
 
 /* RESPONSIVE */
@@ -421,14 +422,10 @@ body.dark .habit-table thead {
   .habit-table {
     font-size: 10px;
   }
-
-  .chart-card canvas {
-    height: 130px; /* a bit shorter on small screens */
-  }
 }
 
 @media (max-width: 480px) {
   .chart-card canvas {
-    height: 110px; /* even shorter on very small screens */
+    aspect-ratio: 16 / 9; /* a bit taller on tiny screens for readability */
   }
 }
