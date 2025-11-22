@@ -119,16 +119,18 @@ window.addEventListener("DOMContentLoaded", () => {
     return m;
   }
 
-  // daily value normalized to 1.0–2.0 so axis can stay locked 1–2
+  // 🔥 Now returns values normalized to 1.0–2.0
   function calculateDailyCompletion(m) {
     const daily = [];
+    const denom = Math.max(habits.length, 1);
+
     for (let d = 0; d < daysInMonth; d++) {
       let done = 0;
       for (let h = 0; h < habits.length; h++) {
         if (m[h][d]) done++;
       }
-      // 0..habits.length -> 1..2
-      const normalized = 1 + done / Math.max(habits.length, 1);
+      // 0..habits.length  ->  1..2
+      const normalized = 1 + done / denom;
       daily.push(normalized);
     }
     return daily;
@@ -173,7 +175,6 @@ window.addEventListener("DOMContentLoaded", () => {
           y: {
             min: 1,
             max: 2,
-            bounds: "ticks",
             ticks: {
               stepSize: 0.1,
               color: "#555"
