@@ -21,18 +21,8 @@ const dayLabels = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 // matrix[habitIndex][dayIndex] = true/false
 let matrix = [];
 
-// chart instance
+// chart instance (now a PIE chart)
 let completionChart = null;
-
-// throttle saves so we don't hammer localStorage on every tap
-let saveTimeout = null;
-function scheduleSave() {
-  if (saveTimeout) clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(() => {
-    saveState();
-    saveTimeout = null;
-  }, 400); // saves at most ~2–3 times per second while tapping
-}
 
 // ---------- MAIN APP ----------
 
@@ -41,7 +31,7 @@ window.addEventListener("DOMContentLoaded", () => {
   const themeToggleBtn = document.getElementById("themeToggle");
   const dashboardSection = document.querySelector(".dashboard");
   const tableEl = dashboardSection.querySelector(".habit-table");
-  const completionCanvas = dashboardSection.querySelector(".habit-line-chart");
+  const completionCanvas = dashboardSection.querySelector(".habit-line-chart"); // same canvas, different chart type
 
   const habitForm = document.getElementById("habitForm");
   const habitNameInput = document.getElementById("habitName");
@@ -129,19 +119,7 @@ window.addEventListener("DOMContentLoaded", () => {
     return m;
   }
 
-  // returns count of completed habits per day (0–habits.length)
-  function calculateDailyCompletion(m) {
-    const daily = [];
-    for (let d = 0; d < daysInMonth; d++) {
-      let done = 0;
-      for (let h = 0; h < habits.length; h++) {
-        if (m[h][d]) done++;
-      }
-      daily.push(done); // count
-    }
-    return daily;
-  }
-
+  // we don't need per-day data for pie, only totals
   function calculateGlobalTotals(m) {
     let total = 0;
     for (let h = 0; h < habits.length; h++) {
@@ -150,49 +128,37 @@ window.addEventListener("DOMContentLoaded", () => {
       }
     }
     const totalPossible = habits.length * daysInMonth;
-    const overall = Math.round((total / totalPossible) * 100);
+    const overall = totalPossible === 0 ? 0 : Math.round((total / totalPossible) * 100);
     return { totalCompleted: total, overallPercent: overall };
   }
 
-  // ---------- CHARTS ----------
+  // ---------- CHARTS (PIE) ----------
 
-  function createLineChart(canvas, data, color, softColor, label) {
+  function createPieChart(canvas) {
+    const { overallPercent } = calculateGlobalTotals(matrix);
+    const remaining = Math.max(0, 100 - overallPercent);
+
     return new Chart(canvas, {
-      type: "line",
+      type: "pie",
       data: {
-        labels: Array.from({ length: daysInMonth }, (_, i) => i + 1),
+        labels: ["Completed", "Remaining"],
         datasets: [
           {
-            label,
-            data,
-            tension: 0.4,
-            borderWidth: 2,
-            fill: true,
-            borderColor: color,
-            backgroundColor: softColor,
-            pointRadius: 0
+            data: [overallPercent, remaining],
+            backgroundColor: ["#7bc96f", "#e0e0e0"],
+            borderWidth: 0
           }
         ]
       },
       options: {
-        // 🔥 kill all animation & hover to reduce work on phone
-        animation: false,
-        responsiveAnimationDuration: 0,
-        interaction: {
-          mode: null,
-          intersect: false
-        },
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { display: false }, grid: { display: false } },
-          y: {
-            min: 0,
-            max: 20, // fixed range: 0 to 20
-            ticks: {
-              stepSize: 2,
-              color: "#555"
-            },
-            grid: { display: false }
+        plugins: {
+          legend: {
+            display: true,
+            position: "bottom",
+            labels: {
+              boxWidth: 12,
+              font: { size: 11 }
+            }
           }
         },
         responsive: true,
@@ -202,19 +168,14 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateCharts() {
-    const data = calculateDailyCompletion(matrix);
+    const { overallPercent } = calculateGlobalTotals(matrix);
+    const remaining = Math.max(0, 100 - overallPercent);
 
     if (!completionChart) {
-      completionChart = createLineChart(
-        completionCanvas,
-        data,
-        "#7bc96f",
-        "rgba(123, 201, 111, 0.25)",
-        "Completed Habits"
-      );
+      completionChart = createPieChart(completionCanvas);
     } else {
-      completionChart.data.datasets[0].data = data;
-      completionChart.update("none"); // 👈 update without animation
+      completionChart.data.datasets[0].data = [overallPercent, remaining];
+      completionChart.update();
     }
   }
 
@@ -308,7 +269,7 @@ window.addEventListener("DOMContentLoaded", () => {
     renderTable();
     updateCharts();
     refreshGlobalStats();
-    saveState(); // form actions can save immediately
+    saveState();
     updateHabitFormMode();
   });
 
@@ -335,7 +296,7 @@ window.addEventListener("DOMContentLoaded", () => {
       renderTable();
       updateCharts();
       refreshGlobalStats();
-      saveState(); // delete is rare, ok to save immediately
+      saveState();
     }
   });
 
@@ -353,7 +314,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     updateCharts();
     refreshGlobalStats();
-    scheduleSave(); // throttled save for rapid tapping
+    saveState();
   });
 
   // ---------- INIT ----------
