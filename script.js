@@ -174,7 +174,7 @@ window.addEventListener("DOMContentLoaded", () => {
           x: { ticks: { display: false }, grid: { display: false } },
           y: {
             min: 1,
-            max: 2,
+            max: 1.10,
             ticks: {
               stepSize: 0.1,
               color: "#555"
