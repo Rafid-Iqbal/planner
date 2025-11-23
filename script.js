@@ -24,6 +24,16 @@ let matrix = [];
 // chart instance
 let completionChart = null;
 
+// throttle saves so we don't hammer localStorage on every tap
+let saveTimeout = null;
+function scheduleSave() {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    saveState();
+    saveTimeout = null;
+  }, 400); // saves at most ~2–3 times per second while tapping
+}
+
 // ---------- MAIN APP ----------
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -119,19 +129,15 @@ window.addEventListener("DOMContentLoaded", () => {
     return m;
   }
 
-  // NOW RETURNS VALUES NORMALIZED TO 1.0–2.0
+  // returns count of completed habits per day (0–habits.length)
   function calculateDailyCompletion(m) {
     const daily = [];
-    const denom = Math.max(habits.length, 1);
-
     for (let d = 0; d < daysInMonth; d++) {
       let done = 0;
       for (let h = 0; h < habits.length; h++) {
         if (m[h][d]) done++;
       }
-      // 0..habits.length  ->  1..2
-      const normalized = 1 + done / denom;
-      daily.push(normalized);
+      daily.push(done); // count
     }
     return daily;
   }
@@ -169,14 +175,21 @@ window.addEventListener("DOMContentLoaded", () => {
         ]
       },
       options: {
+        // 🔥 kill all animation & hover to reduce work on phone
+        animation: false,
+        responsiveAnimationDuration: 0,
+        interaction: {
+          mode: null,
+          intersect: false
+        },
         plugins: { legend: { display: false } },
         scales: {
           x: { ticks: { display: false }, grid: { display: false } },
           y: {
-            min: 1,
-            max: 1.10,
+            min: 0,
+            max: 20, // fixed range: 0 to 20
             ticks: {
-              stepSize: 0.1,
+              stepSize: 2,
               color: "#555"
             },
             grid: { display: false }
@@ -201,7 +214,7 @@ window.addEventListener("DOMContentLoaded", () => {
       );
     } else {
       completionChart.data.datasets[0].data = data;
-      completionChart.update();
+      completionChart.update("none"); // 👈 update without animation
     }
   }
 
@@ -295,7 +308,7 @@ window.addEventListener("DOMContentLoaded", () => {
     renderTable();
     updateCharts();
     refreshGlobalStats();
-    saveState();
+    saveState(); // form actions can save immediately
     updateHabitFormMode();
   });
 
@@ -322,7 +335,7 @@ window.addEventListener("DOMContentLoaded", () => {
       renderTable();
       updateCharts();
       refreshGlobalStats();
-      saveState();
+      saveState(); // delete is rare, ok to save immediately
     }
   });
 
@@ -340,7 +353,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     updateCharts();
     refreshGlobalStats();
-    saveState();
+    scheduleSave(); // throttled save for rapid tapping
   });
 
   // ---------- INIT ----------
